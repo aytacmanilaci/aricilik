@@ -504,6 +504,35 @@ function showLoad(steps){
 function lsA(i){var e=g('ls'+i),s=g('li'+i);if(e)e.className='lstp act';if(s){s.className='spin';s.style.opacity='1';}}
 function lsD(i){var e=g('ls'+i),s=g('li'+i);if(e)e.className='lstp dn';if(s){s.className='chk';s.style.opacity='1';s.textContent='✓';}}
 
+
+function getApiKeyFromModal(){
+  return new Promise(function(resolve){
+    var modal=g('apikeyModal');
+    var inp=g('apikeyInp');
+    var ok=g('apikeyOk');
+    var cancel=g('apikeyCancel');
+    modal.style.display='flex';
+    inp.value=''; inp.focus();
+    function onOk(){
+      var val=inp.value.trim();
+      if(!val){inp.style.borderColor='#C06060';setTimeout(function(){inp.style.borderColor='';},1400);return;}
+      modal.style.display='none';
+      ok.removeEventListener('click',onOk);
+      cancel.removeEventListener('click',onCancel);
+      resolve(val);
+    }
+    function onCancel(){
+      modal.style.display='none';
+      ok.removeEventListener('click',onOk);
+      cancel.removeEventListener('click',onCancel);
+      resolve(null);
+    }
+    ok.addEventListener('click',onOk);
+    cancel.addEventListener('click',onCancel);
+    inp.addEventListener('keydown',function(e){if(e.key==='Enter')onOk();});
+  });
+}
+
 async function startAnalysis(hive){
   // Cache check
   var ck='ana_'+hive.id;
@@ -538,8 +567,9 @@ async function startAnalysis(hive){
   try{
     var apiKey=S.get('apikey');
     if(!apiKey){
-      apiKey=prompt('Anthropic API Key gir (sk-ant-...):');
-      if(apiKey) S.set('apikey',apiKey); else throw new Error('API key girilmedi');
+      apiKey = await getApiKeyFromModal();
+      if(!apiKey) throw new Error('API key girilmedi');
+      S.set('apikey',apiKey);
     }
 
     var res=await fetch('https://api.anthropic.com/v1/messages',{
@@ -853,5 +883,20 @@ renderKList();
 
 }); // DOMContentLoaded
 </script>
+
+<!-- API KEY MODAL -->
+<div id="apikeyModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:2000;align-items:center;justify-content:center;">
+  <div style="background:var(--cd);border:1px solid var(--h);border-radius:8px;padding:20px;width:320px;max-width:92vw;">
+    <div style="font-family:'Playfair Display',serif;font-size:1rem;color:var(--hl);margin-bottom:8px">🔑 API Key Gerekli</div>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:.62rem;color:var(--dm);margin-bottom:12px;line-height:1.6">
+      <a href="https://console.anthropic.com/settings/api-keys" target="_blank" style="color:var(--h)">console.anthropic.com</a> → API Keys → Create Key
+    </div>
+    <input class="inp" id="apikeyInp" placeholder="sk-ant-api03-..." style="margin-bottom:10px">
+    <div style="display:flex;gap:7px">
+      <button class="btn" id="apikeyOk" style="flex:1">✅ Kaydet & Analiz Et</button>
+      <button class="btn s" id="apikeyCancel">İptal</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
