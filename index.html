@@ -68,7 +68,7 @@ select.inp option{background:var(--cd);}
 
 /* MAP */
 .mpwp{flex:1;position:relative;background:#0D0B09;overflow:hidden;}
-#map{position:absolute;inset:0;}
+#map{position:absolute;top:0;left:0;width:100%;height:100%;}
 #gpsbtn{position:absolute;top:10px;right:10px;width:38px;height:38px;border-radius:50%;background:rgba(18,16,8,.93);border:1.5px solid var(--br);cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;z-index:999;transition:border-color .18s;}
 #gpsbtn:hover{border-color:var(--h);}
 #toast{position:absolute;bottom:11px;left:50%;transform:translateX(-50%);background:rgba(18,16,8,.95);border:1px solid var(--h);border-radius:5px;padding:5px 13px;font-family:'IBM Plex Mono',monospace;font-size:.61rem;color:var(--hl);white-space:nowrap;opacity:0;transition:opacity .28s;pointer-events:none;z-index:999;}
@@ -203,9 +203,9 @@ textarea.inp{resize:vertical;min-height:72px;line-height:1.55;}
     <button class="nb" data-pg="p3">📝 Notlar</button>
   </nav>
   <div style="display:flex;align-items:center;padding:0 8px;gap:4px;border-left:1px solid var(--br)">
-    <button onclick="setLang('tr')" id="langTR" style="background:none;border:1px solid var(--br);border-radius:3px;color:var(--dm);font-size:.58rem;padding:2px 6px;cursor:pointer;font-family:'IBM Plex Mono',monospace">TR</button>
-    <button onclick="setLang('fi')" id="langFI" style="background:none;border:1px solid var(--br);border-radius:3px;color:var(--dm);font-size:.58rem;padding:2px 6px;cursor:pointer;font-family:'IBM Plex Mono',monospace">FI</button>
-    <button onclick="setLang('en')" id="langEN" style="background:none;border:1px solid var(--br);border-radius:3px;color:var(--dm);font-size:.58rem;padding:2px 6px;cursor:pointer;font-family:'IBM Plex Mono',monospace">EN</button>
+    <button id="langTR" style="background:none;border:1px solid var(--br);border-radius:3px;color:var(--dm);font-size:.58rem;padding:2px 6px;cursor:pointer;font-family:'IBM Plex Mono',monospace">TR</button>
+    <button id="langFI" style="background:none;border:1px solid var(--br);border-radius:3px;color:var(--dm);font-size:.58rem;padding:2px 6px;cursor:pointer;font-family:'IBM Plex Mono',monospace">FI</button>
+    <button id="langEN" style="background:none;border:1px solid var(--br);border-radius:3px;color:var(--dm);font-size:.58rem;padding:2px 6px;cursor:pointer;font-family:'IBM Plex Mono',monospace">EN</button>
   </div>
 </header>
 
@@ -331,7 +331,7 @@ document.querySelectorAll('.nb').forEach(function(b){
     document.querySelectorAll('.nb').forEach(function(x){x.classList.remove('on');});
     document.querySelectorAll('.pg').forEach(function(x){x.classList.remove('on');});
     b.classList.add('on'); g(b.dataset.pg).classList.add('on');
-    if(b.dataset.pg==='p1') setTimeout(function(){if(lmap)lmap.invalidateSize();},100);
+    if(b.dataset.pg==='p1') setTimeout(function(){if(lmap){lmap.invalidateSize();lmap.invalidateSize();}},200);
     if(b.dataset.pg==='p3') renderNAList();
     if(b.dataset.pg==='p2') renderKList();
   });
@@ -339,6 +339,8 @@ document.querySelectorAll('.nb').forEach(function(b){
 
 // ═══ MAP ═══
 var lmap = L.map('map',{zoomControl:true,attributionControl:true}).setView([60.22,24.80],11);
+window.addEventListener('load', function(){ setTimeout(function(){ lmap.invalidateSize(); },300); });
+setTimeout(function(){ if(lmap) lmap.invalidateSize(); }, 500);
 var osmLayer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'});
 var satLayer=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri'});
 osmLayer.addTo(lmap);
@@ -1103,14 +1105,14 @@ var LANG = {
 };
 var curLang = localStorage.getItem('ari_lang') || 'tr';
 function t(key){ return (LANG[curLang]&&LANG[curLang][key]) || LANG.tr[key] || key; }
-function setLang(l){ 
+window.setLang=function(l){ 
   curLang=l; localStorage.setItem('ari_lang',l); 
   ['TR','FI','EN'].forEach(function(x){
     var b=document.getElementById('lang'+x);
     if(b) b.style.cssText=b.style.cssText.replace(/color:[^;]+/,'')+(x===l.toUpperCase()?';color:var(--hl);border-color:var(--h)':';color:var(--dm);border-color:var(--br)');
   });
-  applyLang(); 
-}
+  applyLang();
+};
 function applyLang(){
   // Nav tabs
   document.querySelector('[data-pg="p1"]').textContent=t('tabAnaliz');
@@ -1139,6 +1141,10 @@ function applyLang(){
   if(lb) lb.innerHTML=isSat?t('streetMap'):t('satellite');
 }
 
+// Lang button listeners
+g('langTR').addEventListener('click',function(){setLang('tr');});
+g('langFI').addEventListener('click',function(){setLang('fi');});
+g('langEN').addEventListener('click',function(){setLang('en');});
 // Apply language on load
 applyLang();
 
