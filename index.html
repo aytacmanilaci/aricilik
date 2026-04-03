@@ -512,7 +512,7 @@ g('hlist').addEventListener('click',function(e){
 });
 g('btnAdd').addEventListener('click',addHive);
 g('btnClr').addEventListener('click',function(){
-  if(hives.length&&!confirm('Tüm arılıklar silinsin mi?')) return;
+  if(hives.length&&!confirm('Tum ariliklar silinsin mi?')) return;
   hives.forEach(function(h){removeMarker(h.id);}); hives=[]; save();
   selH=null; renderHList(); checkOv(); showEmptyAnalysis();
 });
@@ -961,11 +961,11 @@ var LANG = {
     hives:'Arılıklar', deepAnalysis:'Derin Analiz',
     hiveName:'Arılık adı', coordPlaceholder:'60.139836, 24.655440',
     myHive:'🟡 Benim arılığım', rivalHive:'🔴 Rakip arılık', hiveCount:'# kovan',
-    addAnalyze:'🐝 Ekle & Analiz', mapsHint:'Google Maps'ten kopyala',
+    addAnalyze:'🐝 Ekle & Analiz', mapsHint:'Google Maps\u2019ten kopyala',
     satellite:'🛰 Uydu', streetMap:'🗺 Harita',
     coordTaken:'📍 Koordinat alındı! Ekle & Analiz butonuna bas',
     locationUpdated:'✓ Harita güncellendi', locationTaken:'✓ Konum alındı! Ekle & Analiz butonuna bas',
-    noHives:'🐝 Henüz arılık yok.', deleteAllConfirm:'Tüm arılıklar silinsin mi?',
+    noHives:'🐝 Henüz arılık yok.', deleteAllConfirm:'Tum ariliklar silinsin mi?',
     analysis:'Analiz', score:'Arıcılık Skoru', cached:'📦 Önbellekten',
     refresh:'🔄 Yenile', analysisDone:'✅ Analiz tamamlandı',
     analysisFailed:'Analiz başarısız.', retry:'Arılığa tekrar tıkla.',
@@ -995,7 +995,7 @@ var LANG = {
     selectHiveNote:'Arılık seç → not ekle.',
     newNote:'✏️ Yeni Not', notePlaceholder2:'Arılık hakkında not… (flora gözlemi, hava durumu, ziyaret)',
     noNoteYet:'Henüz not yok.',
-    nameTip:'Çift tıkla → isim değiştir',
+    nameTip:'Cift tikla - isim degistir',
     gpsNotSupported:'GPS desteklenmiyor',
     gpsPermission:'Konum izni ver: Ayarlar > Chrome > Konum',
     gpsError:'Konum alınamadı',
