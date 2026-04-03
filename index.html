@@ -202,6 +202,11 @@ textarea.inp{resize:vertical;min-height:72px;line-height:1.55;}
     <button class="nb" data-pg="p2">🐝 Kovanlar</button>
     <button class="nb" data-pg="p3">📝 Notlar</button>
   </nav>
+  <div style="display:flex;align-items:center;padding:0 8px;gap:4px;border-left:1px solid var(--br)">
+    <button onclick="setLang('tr')" id="langTR" style="background:none;border:1px solid var(--br);border-radius:3px;color:var(--dm);font-size:.58rem;padding:2px 6px;cursor:pointer;font-family:'IBM Plex Mono',monospace">TR</button>
+    <button onclick="setLang('fi')" id="langFI" style="background:none;border:1px solid var(--br);border-radius:3px;color:var(--dm);font-size:.58rem;padding:2px 6px;cursor:pointer;font-family:'IBM Plex Mono',monospace">FI</button>
+    <button onclick="setLang('en')" id="langEN" style="background:none;border:1px solid var(--br);border-radius:3px;color:var(--dm);font-size:.58rem;padding:2px 6px;cursor:pointer;font-family:'IBM Plex Mono',monospace">EN</button>
+  </div>
 </header>
 
 <!-- P1 -->
@@ -334,7 +339,24 @@ document.querySelectorAll('.nb').forEach(function(b){
 
 // ═══ MAP ═══
 var lmap = L.map('map',{zoomControl:true,attributionControl:true}).setView([60.22,24.80],11);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(lmap);
+var osmLayer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'});
+var satLayer=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'© Esri'});
+osmLayer.addTo(lmap);
+var isSat=false;
+var layerCtrl=L.control({position:'topleft'});
+layerCtrl.onAdd=function(){
+  var d=L.DomUtil.create('div','leaflet-bar leaflet-control');
+  d.innerHTML='<a href="#" id="layerBtn" style="font-size:.72rem;padding:0 8px;display:flex;align-items:center;height:30px;text-decoration:none;color:#333;white-space:nowrap">🛰 Uydu</a>';
+  L.DomEvent.on(d,'click',function(e){
+    L.DomEvent.preventDefault(e);
+    isSat=!isSat;
+    var btn=document.getElementById('layerBtn');
+    if(isSat){lmap.removeLayer(osmLayer);satLayer.addTo(lmap);btn.innerHTML='🗺 Harita';}
+    else{lmap.removeLayer(satLayer);osmLayer.addTo(lmap);btn.innerHTML='🛰 Uydu';}
+  });
+  return d;
+};
+layerCtrl.addTo(lmap);
 
 var lmk={}, lci={}, clickMk=null;
 
@@ -559,8 +581,13 @@ async function startAnalysis(hive){
     var d=dist(hive,r); if(d<2) ri+=((r.kovan||3)*Math.max(0,1-d/2)*0.5);
   });
 
-  var prompt='Sen Finlandiya arıcılık ve ekoloji uzmanısın. Koordinat: '+hive.lat.toFixed(4)+', '+hive.lng.toFixed(4)+'. Rakip kovan etkisi: '+ri.toFixed(1)+' kovan.\n\n'+
-'Kaynaklar: Maanmittauslaitos (arazi), SYKE (habitat), Luke.fi (orman/tarım), FMI (iklim/rüzgar), LAJI.fi (biyoçeşitlilik), iNaturalist (bitkiler).\n\n'+
+  var prompt='Sen Finlandiya arıcılık ve ekoloji uzmanısın. Web araması yap ve gerçek verilere dayan. Koordinat: '+hive.lat.toFixed(4)+', '+hive.lng.toFixed(4)+'. Rakip kovan etkisi: '+ri.toFixed(1)+' kovan.\n\n'+
+'Web araması ile şunları araştır:
+- Bu koordinatın tam adresi ve bölgesi (Finlandiya belediye/köy)
+- O bölgedeki orman türleri, göller, kıyı şeridi (syke.fi veya maanmittauslaitos.fi)
+- O koordinata yakın gerçek bitki türleri ve nektar kaynakları
+- FMI.fi veya ilmatieteenlaitos.fi kaynaklı hakim rüzgar yönü
+- Luke.fi veya ymparisto.fi kaynaklı arazi kullanım bilgisi\n\n'+
 'SADECE JSON döndür:\n'+
 '{"locationName":"Konum","municipality":"Belediye","researchSummary":"2-3 cümle bölge ve flora","landUse":[{"type":"Orman","emoji":"🌲","pct":40,"color":"#2D5A27"},{"type":"Kıyı/Çayır","emoji":"🌿","pct":20,"color":"#4A8F42"},{"type":"Tarım","emoji":"🌻","pct":15,"color":"#E8935A"},{"type":"Yerleşim","emoji":"🏘️","pct":18,"color":"#8B9BAA"},{"type":"Su","emoji":"💧","pct":7,"color":"#4A90B8"}],"waterPct":7,"score":78,"scoreLabel":"İyi","scoreDesc":"Açıklama","capacityTotal":12,"capacityRival":'+ri.toFixed(1)+',"capacityRecommended":8,"windDir":"GB","windDeg":225,"windRisk":"Orta","nectarPlants":[{"name":"Yaban mersini","finnishName":"Mustikka","months":"May-Haz","strength":3,"color":"#7BC67E","nectarKgHa":40},{"name":"Beyaz yonca","finnishName":"Valkoapila","months":"Haz-Ağu","strength":4,"color":"#F5A623","nectarKgHa":150},{"name":"Ahududu","finnishName":"Vadelma","months":"Haz-Tem","strength":3,"color":"#E8935A","nectarKgHa":80}],"monthlyNectar":[0,0,0,5,25,60,100,80,30,10,0,0],"hiveDir":{"recommended":"GD","degrees":135,"label":"Güneydoğu","reason":"Sabah güneşi alır, kuzeyden korunur.","avoid":"K/KB","avoidReason":"Soğuk Baltık rüzgarı","factors":["Sabah güneşi","Rüzgar koruması","Nem kontrolü"]},"waterWarning":false,"waterWarningMsg":"","tip":"Kısa tavsiye.","yieldPerHive":30}';
 
@@ -580,7 +607,9 @@ async function startAnalysis(hive){
         'anthropic-version':'2023-06-01',
         'anthropic-dangerous-direct-browser-access':'true'
       },
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1200,messages:[{role:'user',content:prompt}]})
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:2000,
+        tools:[{type:'web_search_20250305',name:'web_search'}],
+        messages:[{role:'user',content:prompt}]})
     });
 
     lsD(0); lsA(1);
@@ -881,6 +910,238 @@ function renderNDet(aid){
 renderHList();
 renderKList();
 
+// ── RENAME HIVE ──
+window.renameHive=function(e,id){
+  e.stopPropagation();
+  var el=e.target;
+  var h=hives.find(function(x){return x.id===id;}); if(!h) return;
+  var old=h.name;
+  el.contentEditable='true';
+  el.style.cssText+='outline:1px solid var(--h);border-radius:3px;padding:0 3px';
+  el.focus();
+  var r=document.createRange(); r.selectNodeContents(el);
+  window.getSelection().removeAllRanges(); window.getSelection().addRange(r);
+  function done(){
+    el.contentEditable='false'; el.style.outline=''; el.style.padding='';
+    var n=el.textContent.trim();
+    if(n&&n!==old){
+      h.name=n; save();
+      if(lmk[h.id]) lmk[h.id].setTooltipContent(n);
+      renderHList(); toast('✓ '+n,1500);
+    } else { el.textContent=old+(h.kovan?' ('+h.kovan+'k)':''); }
+  }
+  el.addEventListener('blur',done,{once:true});
+  el.addEventListener('keydown',function(e){
+    if(e.key==='Enter'){e.preventDefault();el.blur();}
+    if(e.key==='Escape'){el.textContent=old+(h.kovan?' ('+h.kovan+'k)':'');el.blur();}
+  });
+};
+
+// ── FRESH ANALYSIS ──
+window.freshAnalysis=function(id){
+  S.set('ana_'+id,null);
+  var h=hives.find(function(x){return x.id===id;}); if(h) startAnalysis(h);
+};
+
+// ── API KEY MODAL ──
+function getApiKeyFromModal(){
+  return new Promise(function(resolve){
+    var modal=g('apikeyModal');
+    var inp=g('apikeyInp');
+    modal.style.display='flex'; inp.value=''; inp.focus();
+    function onOk(){
+      var v=inp.value.trim(); if(!v){inp.style.borderColor='#C06060';setTimeout(function(){inp.style.borderColor='';},1400);return;}
+      modal.style.display='none'; resolve(v);
+    }
+    function onCancel(){ modal.style.display='none'; resolve(null); }
+    g('apikeyOk').onclick=onOk;
+    g('apikeyCancel').onclick=onCancel;
+    inp.onkeydown=function(e){if(e.key==='Enter')onOk();if(e.key==='Escape')onCancel();};
+  });
+}
+
+// ═══ LANGUAGE ═══
+var LANG = {
+  tr: {
+    appTitle:'Arıcılık Yönetim Sistemi',
+    tabAnaliz:'🗺 Analiz', tabKovan:'🐝 Kovanlar', tabNotlar:'📝 Notlar',
+    hives:'Arılıklar', deepAnalysis:'Derin Analiz',
+    hiveName:'Arılık adı', coordPlaceholder:'60.139836, 24.655440',
+    myHive:'🟡 Benim arılığım', rivalHive:'🔴 Rakip arılık', hiveCount:'# kovan',
+    addAnalyze:'🐝 Ekle & Analiz', mapsHint:'Google Maps'ten kopyala',
+    satellite:'🛰 Uydu', streetMap:'🗺 Harita',
+    coordTaken:'📍 Koordinat alındı! Ekle & Analiz butonuna bas',
+    locationUpdated:'✓ Harita güncellendi', locationTaken:'✓ Konum alındı! Ekle & Analiz butonuna bas',
+    noHives:'🐝 Henüz arılık yok.', deleteAllConfirm:'Tüm arılıklar silinsin mi?',
+    analysis:'Analiz', score:'Arıcılık Skoru', cached:'📦 Önbellekten',
+    refresh:'🔄 Yenile', analysisDone:'✅ Analiz tamamlandı',
+    analysisFailed:'Analiz başarısız.', retry:'Arılığa tekrar tıkla.',
+    researchTitle:'🔍 Araştırma', dirTitle:'🧭 Kovan Ağzı Yönü',
+    avoid:'⚠ Kaçın:', capacityTitle:'📦 Kapasite',
+    floraCapacity:'Flora kapasitesi', rivalUsage:'Rakip kullanımı',
+    estimatedYield:'Kovan başına tahmini', recommendedMax:'Önerilen max',
+    windDir:'Hakim rüzgar', landTitle:'🗺 Arazi Kullanımı',
+    nectarTitle:'📅 Aylık Nektar Akışı', plantsTitle:'🌸 Nektar Bitkiler',
+    plant:'Bitki', period:'Dönem', strength:'Güç',
+    waterWarning:'💧 Su Uyarısı:', aiNote:'AI + OSM, FMI, SYKE, MML, Luke, LAJI kaynaklı analiz.',
+    kovans:'Kovanlar', newKovan:'+ Yeni', noKovans:'🐝 Henüz kovan yok.',
+    selectKovan:'Kovan seç.', hive:'Kat', weight:'Ağırlık', frame:'Çerçeve',
+    varroa:'Varroa', queen:'👑 Kraliçe', noInfo:'Bilgi yok',
+    weightHistory:'⚖️ Ağırlık & Kat Geçmişi', noRecord:'Henüz kayıt yok',
+    newMeasure:'📋 Yeni Ölçüm', kg:'AĞIRLIK (kg)', floor:'KAT',
+    frames:'ÇERÇEVE', queenStatus:'KRALİÇE', note:'NOT',
+    notePlaceholder:'İnceleme notu…', save:'💾 Kaydet',
+    history:'📝 Geçmiş', noNotes:'Henüz not yok.',
+    apiKeyTitle:'🔑 API Key', apiKeySave:'✅ Kaydet & Analiz',
+    cancel:'İptal', newKovanTitle:'Yeni Kovan',
+    hiveNo:'Kovan no (K-1)', selectHive:'Arılık seç…',
+    queenInfo:'Kraliçe bilgisi', lowWeight:'⚠ Düşük ağırlık!',
+    highVarroa:'⚠ Yüksek Varroa', normal:'✅ Normal',
+    apiKeyLink:'console.anthropic.com → API Keys → Create Key',
+    notesTitle:'Arılıklar', addHiveFirst:'🐝 Önce arılık ekle.',
+    selectHiveNote:'Arılık seç → not ekle.',
+    newNote:'✏️ Yeni Not', notePlaceholder2:'Arılık hakkında not… (flora gözlemi, hava durumu, ziyaret)',
+    noNoteYet:'Henüz not yok.',
+    nameTip:'Çift tıkla → isim değiştir',
+    gpsNotSupported:'GPS desteklenmiyor',
+    gpsPermission:'Konum izni ver: Ayarlar > Chrome > Konum',
+    gpsError:'Konum alınamadı',
+    months:['Oc','Şb','Mr','Ns','My','Hz','Tş','Ağ','Ey','Ek','Ks','Ar'],
+  },
+  fi: {
+    appTitle:'Mehiläishoito',
+    tabAnaliz:'🗺 Analyysi', tabKovan:'🐝 Pesät', tabNotlar:'📝 Muistiinpanot',
+    hives:'Mehiläispesät', deepAnalysis:'Syvä analyysi',
+    hiveName:'Pesän nimi', coordPlaceholder:'60.139836, 24.655440',
+    myHive:'🟡 Oma pesä', rivalHive:'🔴 Kilpailija', hiveCount:'# pesää',
+    addAnalyze:'🐝 Lisää & Analysoi', mapsHint:'Kopioi Google Mapsista',
+    satellite:'🛰 Satelliitti', streetMap:'🗺 Kartta',
+    coordTaken:'📍 Koordinaatti saatu! Paina Lisää & Analysoi',
+    locationUpdated:'✓ Kartta päivitetty', locationTaken:'✓ Sijainti saatu!',
+    noHives:'🐝 Ei pesäpaikkoja vielä.', deleteAllConfirm:'Poistetaanko kaikki pesäpaikat?',
+    analysis:'Analyysi', score:'Mehiläishoitopisteet', cached:'📦 Välimuistista',
+    refresh:'🔄 Päivitä', analysisDone:'✅ Analyysi valmis',
+    analysisFailed:'Analyysi epäonnistui.', retry:'Napsauta pesäpaikkaa uudelleen.',
+    researchTitle:'🔍 Tutkimus', dirTitle:'🧭 Pesän suunta',
+    avoid:'⚠ Vältä:', capacityTitle:'📦 Kapasiteetti',
+    floraCapacity:'Kasviston kapasiteetti', rivalUsage:'Kilpailijan käyttö',
+    estimatedYield:'Arvioitu tuotto/pesä', recommendedMax:'Suositeltu max',
+    windDir:'Vallitseva tuuli', landTitle:'🗺 Maankäyttö',
+    nectarTitle:'📅 Kuukausittainen nektarivuo', plantsTitle:'🌸 Nektarikasvit',
+    plant:'Kasvi', period:'Aika', strength:'Vahvuus',
+    waterWarning:'💧 Vesivaroitus:', aiNote:'AI + OSM, FMI, SYKE, MML, Luke, LAJI -lähteistä.',
+    kovans:'Pesät', newKovan:'+ Uusi', noKovans:'🐝 Ei pesälaatikoita vielä.',
+    selectKovan:'Valitse pesälaatikko.', hive:'Kerros', weight:'Paino', frame:'Kehät',
+    varroa:'Varroa', queen:'👑 Kuningatar', noInfo:'Ei tietoa',
+    weightHistory:'⚖️ Paino & Kerroshistoria', noRecord:'Ei merkintöjä vielä',
+    newMeasure:'📋 Uusi mittaus', kg:'PAINO (kg)', floor:'KERROKSET',
+    frames:'KEHÄT', queenStatus:'KUNINGATAR', note:'MUISTIINPANO',
+    notePlaceholder:'Tarkastusmuistiinpano…', save:'💾 Tallenna',
+    history:'📝 Historia', noNotes:'Ei muistiinpanoja vielä.',
+    apiKeyTitle:'🔑 API-avain', apiKeySave:'✅ Tallenna & Analysoi',
+    cancel:'Peruuta', newKovanTitle:'Uusi pesälaatikko',
+    hiveNo:'Pesänumero (P-1)', selectHive:'Valitse pesäpaikka…',
+    queenInfo:'Kuningatarinformaatio', lowWeight:'⚠ Matala paino!',
+    highVarroa:'⚠ Korkea Varroa', normal:'✅ Normaali',
+    apiKeyLink:'console.anthropic.com → API Keys → Create Key',
+    notesTitle:'Pesäpaikat', addHiveFirst:'🐝 Lisää ensin pesäpaikka.',
+    selectHiveNote:'Valitse pesäpaikka → lisää muistiinpano.',
+    newNote:'✏️ Uusi muistiinpano', notePlaceholder2:'Muistiinpano pesäpaikasta…',
+    noNoteYet:'Ei muistiinpanoja vielä.',
+    nameTip:'Kaksoisnapsauta → muuta nimi',
+    gpsNotSupported:'GPS ei tuettu',
+    gpsPermission:'Anna sijaintilupa: Asetukset > Chrome > Sijainti',
+    gpsError:'Sijaintia ei saatu',
+    months:['Ta','He','Ma','Hu','To','Ke','Hä','El','Sy','Lo','Ma','Jo'],
+  },
+  en: {
+    appTitle:'Beekeeping Management',
+    tabAnaliz:'🗺 Analysis', tabKovan:'🐝 Hives', tabNotlar:'📝 Notes',
+    hives:'Apiaries', deepAnalysis:'Deep Analysis',
+    hiveName:'Apiary name', coordPlaceholder:'60.139836, 24.655440',
+    myHive:'🟡 My apiary', rivalHive:'🔴 Rival apiary', hiveCount:'# hives',
+    addAnalyze:'🐝 Add & Analyze', mapsHint:'Copy from Google Maps',
+    satellite:'🛰 Satellite', streetMap:'🗺 Map',
+    coordTaken:'📍 Coordinates set! Press Add & Analyze',
+    locationUpdated:'✓ Map updated', locationTaken:'✓ Location acquired!',
+    noHives:'🐝 No apiaries yet.', deleteAllConfirm:'Delete all apiaries?',
+    analysis:'Analysis', score:'Beekeeping Score', cached:'📦 From cache',
+    refresh:'🔄 Refresh', analysisDone:'✅ Analysis complete',
+    analysisFailed:'Analysis failed.', retry:'Click the apiary again.',
+    researchTitle:'🔍 Research', dirTitle:'🧭 Hive Entrance Direction',
+    avoid:'⚠ Avoid:', capacityTitle:'📦 Capacity',
+    floraCapacity:'Flora capacity', rivalUsage:'Rival usage',
+    estimatedYield:'Estimated yield/hive', recommendedMax:'Recommended max',
+    windDir:'Prevailing wind', landTitle:'🗺 Land Use',
+    nectarTitle:'📅 Monthly Nectar Flow', plantsTitle:'🌸 Nectar Plants',
+    plant:'Plant', period:'Period', strength:'Strength',
+    waterWarning:'💧 Water Warning:', aiNote:'AI + OSM, FMI, SYKE, MML, Luke, LAJI sources.',
+    kovans:'Hives', newKovan:'+ New', noKovans:'🐝 No hive boxes yet.',
+    selectKovan:'Select hive box.', hive:'Box', weight:'Weight', frame:'Frames',
+    varroa:'Varroa', queen:'👑 Queen', noInfo:'No info',
+    weightHistory:'⚖️ Weight & Box History', noRecord:'No records yet',
+    newMeasure:'📋 New Measurement', kg:'WEIGHT (kg)', floor:'BOXES',
+    frames:'FRAMES', queenStatus:'QUEEN', note:'NOTE',
+    notePlaceholder:'Inspection note…', save:'💾 Save',
+    history:'📝 History', noNotes:'No notes yet.',
+    apiKeyTitle:'🔑 API Key', apiKeySave:'✅ Save & Analyze',
+    cancel:'Cancel', newKovanTitle:'New Hive Box',
+    hiveNo:'Hive number (H-1)', selectHive:'Select apiary…',
+    queenInfo:'Queen information', lowWeight:'⚠ Low weight!',
+    highVarroa:'⚠ High Varroa', normal:'✅ Normal',
+    apiKeyLink:'console.anthropic.com → API Keys → Create Key',
+    notesTitle:'Apiaries', addHiveFirst:'🐝 Add an apiary first.',
+    selectHiveNote:'Select apiary → add note.',
+    newNote:'✏️ New Note', notePlaceholder2:'Note about apiary…',
+    noNoteYet:'No notes yet.',
+    nameTip:'Double-click → rename',
+    gpsNotSupported:'GPS not supported',
+    gpsPermission:'Allow location: Settings > Chrome > Location',
+    gpsError:'Could not get location',
+    months:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+  }
+};
+var curLang = localStorage.getItem('ari_lang') || 'tr';
+function t(key){ return (LANG[curLang]&&LANG[curLang][key]) || LANG.tr[key] || key; }
+function setLang(l){ 
+  curLang=l; localStorage.setItem('ari_lang',l); 
+  ['TR','FI','EN'].forEach(function(x){
+    var b=document.getElementById('lang'+x);
+    if(b) b.style.cssText=b.style.cssText.replace(/color:[^;]+/,'')+(x===l.toUpperCase()?';color:var(--hl);border-color:var(--h)':';color:var(--dm);border-color:var(--br)');
+  });
+  applyLang(); 
+}
+function applyLang(){
+  // Nav tabs
+  document.querySelector('[data-pg="p1"]').textContent=t('tabAnaliz');
+  document.querySelector('[data-pg="p2"]').textContent=t('tabKovan');
+  document.querySelector('[data-pg="p3"]').textContent=t('tabNotlar');
+  // Form
+  var iName=g('iName'); if(iName) iName.placeholder=t('hiveName');
+  var iCoord=g('iCoord'); if(iCoord) iCoord.placeholder=t('coordPlaceholder');
+  var iType=g('iType'); if(iType){
+    iType.options[0].text=t('myHive'); iType.options[1].text=t('rivalHive');
+  }
+  var iKovan=g('iKovan'); if(iKovan) iKovan.placeholder=t('hiveCount');
+  var btnAdd=g('btnAdd'); if(btnAdd) btnAdd.innerHTML=t('addAnalyze');
+  // Hint
+  var hint=document.querySelector('.hint'); if(hint) hint.childNodes[1]&&(hint.childNodes[1].textContent=' '+t('mapsHint'));
+  // Panels
+  document.querySelectorAll('.nb').forEach(function(b){
+    if(b.dataset.pg==='p1') b.textContent=t('tabAnaliz');
+    if(b.dataset.pg==='p2') b.textContent=t('tabKovan');
+    if(b.dataset.pg==='p3') b.textContent=t('tabNotlar');
+  });
+  // Re-render lists
+  renderHList(); renderKList(); renderNAList();
+  // Layer button
+  var lb=document.getElementById('layerBtn');
+  if(lb) lb.innerHTML=isSat?t('streetMap'):t('satellite');
+}
+
+// Apply language on load
+applyLang();
+
 }); // DOMContentLoaded
 </script>
 
@@ -894,6 +1155,20 @@ renderKList();
     <input class="inp" id="apikeyInp" placeholder="sk-ant-api03-..." style="margin-bottom:10px">
     <div style="display:flex;gap:7px">
       <button class="btn" id="apikeyOk" style="flex:1">✅ Kaydet & Analiz Et</button>
+      <button class="btn s" id="apikeyCancel">İptal</button>
+    </div>
+  </div>
+</div>
+
+<div id="apikeyModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:2000;align-items:center;justify-content:center;">
+  <div style="background:var(--cd);border:1px solid var(--h);border-radius:8px;padding:20px;width:320px;max-width:92vw;">
+    <div style="font-family:'Playfair Display',serif;font-size:1rem;color:var(--hl);margin-bottom:8px">🔑 API Key</div>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:.6rem;color:var(--dm);margin-bottom:10px;line-height:1.6">
+      <a href="https://console.anthropic.com/settings/api-keys" target="_blank" style="color:var(--h)">console.anthropic.com</a> → API Keys → Create Key
+    </div>
+    <input class="inp" id="apikeyInp" placeholder="sk-ant-api03-..." style="margin-bottom:10px">
+    <div style="display:flex;gap:7px">
+      <button class="btn" id="apikeyOk" style="flex:1">✅ Kaydet & Analiz</button>
       <button class="btn s" id="apikeyCancel">İptal</button>
     </div>
   </div>
