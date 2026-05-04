@@ -557,7 +557,9 @@ function getApiKeyFromModal(){
   });
 }
 
+var isAnalyzing = false;
 async function startAnalysis(hive){
+  if(isAnalyzing){ toast('⏳ Analiz devam ediyor, bekle...', 2000); return; }
   // Cache check
   var ck='ana_'+hive.id;
   var cached=S.get(ck);
@@ -583,7 +585,8 @@ async function startAnalysis(hive){
     var d=dist(hive,r); if(d<2) ri+=((r.kovan||3)*Math.max(0,1-d/2)*0.5);
   });
 
-  var prompt='Sen Finlandiya aricilik uzmanisın. Koordinat: '+hive.lat.toFixed(4)+', '+hive.lng.toFixed(4)+'. Rakip kovan etkisi: '+ri.toFixed(1)+' kovan. Web aramasi yap: koordinat adresi, orman turleri, bitki turleri, ruzgar yonu, arazi kullanimi (SYKE,MML,FMI,Luke,LAJI). SADECE JSON don: {"locationName":"Konum","municipality":"Belediye","researchSummary":"2-3 cumle bolge ve flora","landUse":[{"type":"Orman","emoji":"\uD83C\uDF32","pct":40,"color":"#2D5A27"},{"type":"Kiyi/Cayir","emoji":"\uD83C\uDF3F","pct":20,"color":"#4A8F42"},{"type":"Tarim","emoji":"\uD83C\uDF3B","pct":15,"color":"#E8935A"},{"type":"Yerlesim","emoji":"\uD83C\uDFD8","pct":18,"color":"#8B9BAA"},{"type":"Su","emoji":"\uD83D\uDCA7","pct":7,"color":"#4A90B8"}],"waterPct":7,"score":78,"scoreLabel":"Iyi","scoreDesc":"Aciklama","capacityTotal":12,"capacityRival":'+ri.toFixed(1)+',"capacityRecommended":8,"windDir":"GB","windDeg":225,"windRisk":"Orta","nectarPlants":[{"name":"Yaban mersini","finnishName":"Mustikka","months":"May-Haz","strength":3,"color":"#7BC67E","nectarKgHa":40},{"name":"Beyaz yonca","finnishName":"Valkoapila","months":"Haz-Agu","strength":4,"color":"#F5A623","nectarKgHa":150},{"name":"Ahududu","finnishName":"Vadelma","months":"Haz-Tem","strength":3,"color":"#E8935A","nectarKgHa":80}],"monthlyNectar":[0,0,0,5,25,60,100,80,30,10,0,0],"hiveDir":{"recommended":"GD","degrees":135,"label":"Guneydogu","reason":"Sabah gunesi alir.","avoid":"K/KB","avoidReason":"Soguk ruzgar","factors":["Sabah gunesi","Ruzgar korumasi","Nem kontrolu"]},"waterWarning":false,"waterWarningMsg":"","tip":"Kisa tavsiye.","yieldPerHive":30}'
+  var prompt='You are a Finnish beekeeping expert. The EXACT coordinates are: LAT='+hive.lat.toFixed(6)+' LNG='+hive.lng.toFixed(6)+'. Rival hives impact: '+ri.toFixed(1)+' hives.\n\nIMPORTANT: First use web_search to find:\n1. Search "'+hive.lat.toFixed(4)+' '+hive.lng.toFixed(4)+' address Finland" to get EXACT location\n2. Search for local flora and nature around those EXACT coordinates\n3. Search FMI.fi for wind direction in that municipality\n\nDo NOT guess - use web search results only. Return ONLY this JSON (no other text):\n{"locationName":"EXACT location name from search","municipality":"EXACT municipality","researchSummary":"3 sentences based on actual web search results about this exact location","landUse":[{"type":"Forest","emoji":"\uD83C\uDF32","pct":40,"color":"#2D5A27"},{"type":"Coast/Meadow","emoji":"\uD83C\uDF3F","pct":20,"color":"#4A8F42"},{"type":"Agriculture","emoji":"\uD83C\uDF3B","pct":15,"color":"#E8935A"},{"type":"Urban","emoji":"\uD83C\uDFD8","pct":18,"color":"#8B9BAA"},{"type":"Water","emoji":"\uD83D\uDCA7","pct":7,"color":"#4A90B8"}],"waterPct":7,"score":78,"scoreLabel":"Good","scoreDesc":"Short description","capacityTotal":12,"capacityRival":'+ri.toFixed(1)+',"capacityRecommended":8,"windDir":"SW","windDeg":225,"windRisk":"Medium","nectarPlants":[{"name":"Yaban mersini","finnishName":"Mustikka","months":"May-Jun","strength":3,"color":"#7BC67E","nectarKgHa":40},{"name":"Beyaz yonca","finnishName":"Valkoapila","months":"Jun-Aug","strength":4,"color":"#F5A623","nectarKgHa":150},{"name":"Ahududu","finnishName":"Vadelma","months":"Jun-Jul","strength":3,"color":"#E8935A","nectarKgHa":80}],"monthlyNectar":[0,0,0,5,25,60,100,80,30,10,0,0],"hiveDir":{"recommended":"SE","degrees":135,"label":"Southeast","reason":"Morning sun, protected from north winds.","avoid":"N/NW","avoidReason":"Cold Baltic wind","factors":["Morning sun","Wind protection","Humidity control"]},"waterWarning":false,"waterWarningMsg":"","tip":"Short tip based on actual location.","yieldPerHive":30}'
+  isAnalyzing = true;
   try{
     var apiKey=S.get('apikey');
     if(!apiKey){
@@ -592,34 +595,33 @@ async function startAnalysis(hive){
       S.set('apikey',apiKey);
     }
 
-    var res=await fetch('https://api.anthropic.com/v1/messages',{
+    var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key='+apiKey,{
       method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key':apiKey,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true'
-      },
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:2000,
-        tools:[{type:'web_search_20250305',name:'web_search'}],
-        messages:[{role:'user',content:prompt}]})
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        contents:[{parts:[{text:prompt}]}],
+        tools:[{google_search:{}}],
+        generationConfig:{maxOutputTokens:2000}
+      })
     });
 
     lsD(0); lsA(1);
 
     if(!res.ok){
       var et=await res.text();
-      var ej=JSON.parse(et);
-      if(ej.error&&ej.error.message&&ej.error.message.includes('credit')){
-        S.set('apikey',null); // clear bad key
-        throw new Error('Kredi yetersiz — console.anthropic.com/settings/billing adresinden kredi yükle');
+      if(res.status===401||res.status===403){
+        S.set('apikey',null);
+        throw new Error('API key hatali — aistudio.google.com adresinden yeni key al');
       }
       throw new Error('API '+res.status+': '+et.slice(0,100));
     }
 
     var data=await res.json();
     lsD(1); lsA(2);
-    var txt=(data.content||[]).map(function(i){return i.text||'';}).join('');
+    var txt='';
+    if(data.candidates&&data.candidates[0]&&data.candidates[0].content){
+      txt=data.candidates[0].content.parts.map(function(p){return p.text||'';}).join('');
+    }
     var m=txt.match(/\{[\s\S]*\}/); if(!m) throw new Error('JSON bulunamadı');
     var r=JSON.parse(m[0]);
     lsD(2); lsA(3);
@@ -629,6 +631,7 @@ async function startAnalysis(hive){
     var h=hives.find(function(x){return x.id===hive.id;});
     if(h){ h.score=r.score; save(); renderHList(); }
     S.set(ck,{result:r,lat:hive.lat,lng:hive.lng,ts:Date.now()});
+    isAnalyzing = false;
 
     var cacheBar='<div style="text-align:right;padding:4px 0 8px;font-family:IBM Plex Mono,monospace;font-size:.58rem;color:var(--dm)">'+
       '✅ Analiz tamamlandı · <button onclick="freshAnalysis(\''+hive.id+'\')" style="background:none;border:1px solid var(--br);color:var(--h);border-radius:3px;padding:1px 6px;cursor:pointer;font-family:IBM Plex Mono,monospace;font-size:.56rem">🔄 Yenile</button></div>';
@@ -636,6 +639,7 @@ async function startAnalysis(hive){
     renderAna(hive,r,true);
 
   }catch(err){
+    isAnalyzing = false;
     console.error(err);
     g('apanel').innerHTML='<div class="empty"><div class="ei">⚠️</div>'+
       '<p style="font-size:.72rem;color:var(--tx)">Analiz başarısız.</p>'+
@@ -985,12 +989,12 @@ var LANG = {
     frames:'ÇERÇEVE', queenStatus:'KRALİÇE', note:'NOT',
     notePlaceholder:'İnceleme notu…', save:'💾 Kaydet',
     history:'📝 Geçmiş', noNotes:'Henüz not yok.',
-    apiKeyTitle:'🔑 API Key', apiKeySave:'✅ Kaydet & Analiz',
+    apiKeyTitle:'🔑 Gemini API Key', apiKeySave:'✅ Kaydet & Analiz Et',
     cancel:'İptal', newKovanTitle:'Yeni Kovan',
     hiveNo:'Kovan no (K-1)', selectHive:'Arılık seç…',
     queenInfo:'Kraliçe bilgisi', lowWeight:'⚠ Düşük ağırlık!',
     highVarroa:'⚠ Yüksek Varroa', normal:'✅ Normal',
-    apiKeyLink:'console.anthropic.com → API Keys → Create Key',
+    apiKeyLink:'aistudio.google.com/apikey → API Keys → Create Key',
     notesTitle:'Arılıklar', addHiveFirst:'🐝 Önce arılık ekle.',
     selectHiveNote:'Arılık seç → not ekle.',
     newNote:'✏️ Yeni Not', notePlaceholder2:'Arılık hakkında not… (flora gözlemi, hava durumu, ziyaret)',
@@ -1031,12 +1035,12 @@ var LANG = {
     frames:'KEHÄT', queenStatus:'KUNINGATAR', note:'MUISTIINPANO',
     notePlaceholder:'Tarkastusmuistiinpano…', save:'💾 Tallenna',
     history:'📝 Historia', noNotes:'Ei muistiinpanoja vielä.',
-    apiKeyTitle:'🔑 API-avain', apiKeySave:'✅ Tallenna & Analysoi',
+    apiKeyTitle:'🔑 Gemini API-avain', apiKeySave:'✅ Tallenna & Analysoi',
     cancel:'Peruuta', newKovanTitle:'Uusi pesälaatikko',
     hiveNo:'Pesänumero (P-1)', selectHive:'Valitse pesäpaikka…',
     queenInfo:'Kuningatarinformaatio', lowWeight:'⚠ Matala paino!',
     highVarroa:'⚠ Korkea Varroa', normal:'✅ Normaali',
-    apiKeyLink:'console.anthropic.com → API Keys → Create Key',
+    apiKeyLink:'aistudio.google.com/apikey → API Keys → Create Key',
     notesTitle:'Pesäpaikat', addHiveFirst:'🐝 Lisää ensin pesäpaikka.',
     selectHiveNote:'Valitse pesäpaikka → lisää muistiinpano.',
     newNote:'✏️ Uusi muistiinpano', notePlaceholder2:'Muistiinpano pesäpaikasta…',
@@ -1077,12 +1081,12 @@ var LANG = {
     frames:'FRAMES', queenStatus:'QUEEN', note:'NOTE',
     notePlaceholder:'Inspection note…', save:'💾 Save',
     history:'📝 History', noNotes:'No notes yet.',
-    apiKeyTitle:'🔑 API Key', apiKeySave:'✅ Save & Analyze',
+    apiKeyTitle:'🔑 Gemini API Key', apiKeySave:'✅ Save & Analyze',
     cancel:'Cancel', newKovanTitle:'New Hive Box',
     hiveNo:'Hive number (H-1)', selectHive:'Select apiary…',
     queenInfo:'Queen information', lowWeight:'⚠ Low weight!',
     highVarroa:'⚠ High Varroa', normal:'✅ Normal',
-    apiKeyLink:'console.anthropic.com → API Keys → Create Key',
+    apiKeyLink:'aistudio.google.com/apikey → API Keys → Create Key',
     notesTitle:'Apiaries', addHiveFirst:'🐝 Add an apiary first.',
     selectHiveNote:'Select apiary → add note.',
     newNote:'✏️ New Note', notePlaceholder2:'Note about apiary…',
@@ -1147,9 +1151,9 @@ applyLang();
   <div style="background:var(--cd);border:1px solid var(--h);border-radius:8px;padding:20px;width:320px;max-width:92vw;">
     <div style="font-family:'Playfair Display',serif;font-size:1rem;color:var(--hl);margin-bottom:8px">🔑 API Key Gerekli</div>
     <div style="font-family:'IBM Plex Mono',monospace;font-size:.62rem;color:var(--dm);margin-bottom:12px;line-height:1.6">
-      <a href="https://console.anthropic.com/settings/api-keys" target="_blank" style="color:var(--h)">console.anthropic.com</a> → API Keys → Create Key
+      <a href="https://aistudio.google.com/apikey/settings/api-keys" target="_blank" style="color:var(--h)">aistudio.google.com/apikey</a> → API Keys → Create Key
     </div>
-    <input class="inp" id="apikeyInp" placeholder="sk-ant-api03-..." style="margin-bottom:10px">
+    <input class="inp" id="apikeyInp" placeholder="AIzaSy..." style="margin-bottom:10px">
     <div style="display:flex;gap:7px">
       <button class="btn" id="apikeyOk" style="flex:1">✅ Kaydet & Analiz Et</button>
       <button class="btn s" id="apikeyCancel">İptal</button>
@@ -1161,9 +1165,9 @@ applyLang();
   <div style="background:var(--cd);border:1px solid var(--h);border-radius:8px;padding:20px;width:320px;max-width:92vw;">
     <div style="font-family:'Playfair Display',serif;font-size:1rem;color:var(--hl);margin-bottom:8px">🔑 API Key</div>
     <div style="font-family:'IBM Plex Mono',monospace;font-size:.6rem;color:var(--dm);margin-bottom:10px;line-height:1.6">
-      <a href="https://console.anthropic.com/settings/api-keys" target="_blank" style="color:var(--h)">console.anthropic.com</a> → API Keys → Create Key
+      <a href="https://aistudio.google.com/apikey/settings/api-keys" target="_blank" style="color:var(--h)">aistudio.google.com/apikey</a> → API Keys → Create Key
     </div>
-    <input class="inp" id="apikeyInp" placeholder="sk-ant-api03-..." style="margin-bottom:10px">
+    <input class="inp" id="apikeyInp" placeholder="AIzaSy..." style="margin-bottom:10px">
     <div style="display:flex;gap:7px">
       <button class="btn" id="apikeyOk" style="flex:1">✅ Kaydet & Analiz</button>
       <button class="btn s" id="apikeyCancel">İptal</button>
