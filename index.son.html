@@ -595,34 +595,33 @@ async function startAnalysis(hive){
       S.set('apikey',apiKey);
     }
 
-    var res=await fetch('https://api.anthropic.com/v1/messages',{
+    var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+apiKey,{
       method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key':apiKey,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true'
-      },
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:2000,
-        tools:[{type:'web_search_20250305',name:'web_search'}],
-        messages:[{role:'user',content:prompt}]})
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        contents:[{parts:[{text:prompt}]}],
+        tools:[{google_search:{}}],
+        generationConfig:{maxOutputTokens:2000}
+      })
     });
 
     lsD(0); lsA(1);
 
     if(!res.ok){
       var et=await res.text();
-      var ej=JSON.parse(et);
-      if(ej.error&&ej.error.message&&ej.error.message.includes('credit')){
-        S.set('apikey',null); // clear bad key
-        throw new Error('Kredi yetersiz — console.anthropic.com/settings/billing adresinden kredi yükle');
+      if(res.status===401||res.status===403){
+        S.set('apikey',null);
+        throw new Error('API key hatali — aistudio.google.com adresinden yeni key al');
       }
       throw new Error('API '+res.status+': '+et.slice(0,100));
     }
 
     var data=await res.json();
     lsD(1); lsA(2);
-    var txt=(data.content||[]).map(function(i){return i.text||'';}).join('');
+    var txt='';
+    if(data.candidates&&data.candidates[0]&&data.candidates[0].content){
+      txt=data.candidates[0].content.parts.map(function(p){return p.text||'';}).join('');
+    }
     var m=txt.match(/\{[\s\S]*\}/); if(!m) throw new Error('JSON bulunamadı');
     var r=JSON.parse(m[0]);
     lsD(2); lsA(3);
@@ -990,12 +989,12 @@ var LANG = {
     frames:'ÇERÇEVE', queenStatus:'KRALİÇE', note:'NOT',
     notePlaceholder:'İnceleme notu…', save:'💾 Kaydet',
     history:'📝 Geçmiş', noNotes:'Henüz not yok.',
-    apiKeyTitle:'🔑 API Key', apiKeySave:'✅ Kaydet & Analiz',
+    apiKeyTitle:'🔑 Gemini API Key', apiKeySave:'✅ Kaydet & Analiz Et',
     cancel:'İptal', newKovanTitle:'Yeni Kovan',
     hiveNo:'Kovan no (K-1)', selectHive:'Arılık seç…',
     queenInfo:'Kraliçe bilgisi', lowWeight:'⚠ Düşük ağırlık!',
     highVarroa:'⚠ Yüksek Varroa', normal:'✅ Normal',
-    apiKeyLink:'console.anthropic.com → API Keys → Create Key',
+    apiKeyLink:'aistudio.google.com/apikey → API Keys → Create Key',
     notesTitle:'Arılıklar', addHiveFirst:'🐝 Önce arılık ekle.',
     selectHiveNote:'Arılık seç → not ekle.',
     newNote:'✏️ Yeni Not', notePlaceholder2:'Arılık hakkında not… (flora gözlemi, hava durumu, ziyaret)',
@@ -1036,12 +1035,12 @@ var LANG = {
     frames:'KEHÄT', queenStatus:'KUNINGATAR', note:'MUISTIINPANO',
     notePlaceholder:'Tarkastusmuistiinpano…', save:'💾 Tallenna',
     history:'📝 Historia', noNotes:'Ei muistiinpanoja vielä.',
-    apiKeyTitle:'🔑 API-avain', apiKeySave:'✅ Tallenna & Analysoi',
+    apiKeyTitle:'🔑 Gemini API-avain', apiKeySave:'✅ Tallenna & Analysoi',
     cancel:'Peruuta', newKovanTitle:'Uusi pesälaatikko',
     hiveNo:'Pesänumero (P-1)', selectHive:'Valitse pesäpaikka…',
     queenInfo:'Kuningatarinformaatio', lowWeight:'⚠ Matala paino!',
     highVarroa:'⚠ Korkea Varroa', normal:'✅ Normaali',
-    apiKeyLink:'console.anthropic.com → API Keys → Create Key',
+    apiKeyLink:'aistudio.google.com/apikey → API Keys → Create Key',
     notesTitle:'Pesäpaikat', addHiveFirst:'🐝 Lisää ensin pesäpaikka.',
     selectHiveNote:'Valitse pesäpaikka → lisää muistiinpano.',
     newNote:'✏️ Uusi muistiinpano', notePlaceholder2:'Muistiinpano pesäpaikasta…',
@@ -1082,12 +1081,12 @@ var LANG = {
     frames:'FRAMES', queenStatus:'QUEEN', note:'NOTE',
     notePlaceholder:'Inspection note…', save:'💾 Save',
     history:'📝 History', noNotes:'No notes yet.',
-    apiKeyTitle:'🔑 API Key', apiKeySave:'✅ Save & Analyze',
+    apiKeyTitle:'🔑 Gemini API Key', apiKeySave:'✅ Save & Analyze',
     cancel:'Cancel', newKovanTitle:'New Hive Box',
     hiveNo:'Hive number (H-1)', selectHive:'Select apiary…',
     queenInfo:'Queen information', lowWeight:'⚠ Low weight!',
     highVarroa:'⚠ High Varroa', normal:'✅ Normal',
-    apiKeyLink:'console.anthropic.com → API Keys → Create Key',
+    apiKeyLink:'aistudio.google.com/apikey → API Keys → Create Key',
     notesTitle:'Apiaries', addHiveFirst:'🐝 Add an apiary first.',
     selectHiveNote:'Select apiary → add note.',
     newNote:'✏️ New Note', notePlaceholder2:'Note about apiary…',
@@ -1152,9 +1151,9 @@ applyLang();
   <div style="background:var(--cd);border:1px solid var(--h);border-radius:8px;padding:20px;width:320px;max-width:92vw;">
     <div style="font-family:'Playfair Display',serif;font-size:1rem;color:var(--hl);margin-bottom:8px">🔑 API Key Gerekli</div>
     <div style="font-family:'IBM Plex Mono',monospace;font-size:.62rem;color:var(--dm);margin-bottom:12px;line-height:1.6">
-      <a href="https://console.anthropic.com/settings/api-keys" target="_blank" style="color:var(--h)">console.anthropic.com</a> → API Keys → Create Key
+      <a href="https://aistudio.google.com/apikey/settings/api-keys" target="_blank" style="color:var(--h)">aistudio.google.com/apikey</a> → API Keys → Create Key
     </div>
-    <input class="inp" id="apikeyInp" placeholder="sk-ant-api03-..." style="margin-bottom:10px">
+    <input class="inp" id="apikeyInp" placeholder="AIzaSy..." style="margin-bottom:10px">
     <div style="display:flex;gap:7px">
       <button class="btn" id="apikeyOk" style="flex:1">✅ Kaydet & Analiz Et</button>
       <button class="btn s" id="apikeyCancel">İptal</button>
@@ -1166,9 +1165,9 @@ applyLang();
   <div style="background:var(--cd);border:1px solid var(--h);border-radius:8px;padding:20px;width:320px;max-width:92vw;">
     <div style="font-family:'Playfair Display',serif;font-size:1rem;color:var(--hl);margin-bottom:8px">🔑 API Key</div>
     <div style="font-family:'IBM Plex Mono',monospace;font-size:.6rem;color:var(--dm);margin-bottom:10px;line-height:1.6">
-      <a href="https://console.anthropic.com/settings/api-keys" target="_blank" style="color:var(--h)">console.anthropic.com</a> → API Keys → Create Key
+      <a href="https://aistudio.google.com/apikey/settings/api-keys" target="_blank" style="color:var(--h)">aistudio.google.com/apikey</a> → API Keys → Create Key
     </div>
-    <input class="inp" id="apikeyInp" placeholder="sk-ant-api03-..." style="margin-bottom:10px">
+    <input class="inp" id="apikeyInp" placeholder="AIzaSy..." style="margin-bottom:10px">
     <div style="display:flex;gap:7px">
       <button class="btn" id="apikeyOk" style="flex:1">✅ Kaydet & Analiz</button>
       <button class="btn s" id="apikeyCancel">İptal</button>
