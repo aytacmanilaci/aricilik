@@ -386,7 +386,7 @@ if(!hives.length){el.innerHTML="<div class='empty'>🐝 Henüz arılık yok.</di
 el.innerHTML=hives.map(function(h){
 var mine=h.type==="mine";
 var sc=h.score!==null?"<span style='font-family:IBM Plex Mono,monospace;font-size:.61rem;font-weight:700;color:"+scCol(h.score)+"'>"+h.score+"</span>":"";
-return "<div class='li"+(h.type==="rival"?" rv":"")+(h.id===selH?" on":"")+"' data-hid='"+h.id+"'><div class='li-ic'>"+(mine?"🟡":"🔴")+"</div><div class='li-inf'><div class='li-nm' style='color:"+(mine?"var(--hl)":"var(--rvl)")+"' ondblclick='renameHive(event,&quot;"+h.id+"&quot;)'>"+h.name+(h.kovan?" ("+h.kovan+"k)")+"</div><div class='li-sb'>"+h.lat.toFixed(4)+", "+h.lng.toFixed(4)+"</div></div>"+sc+"<button class='xb' data-hdel='"+h.id+"'>✕</button></div>";
+return "<div class='li"+(h.type==="rival"?" rv":"")+(h.id===selH?" on":"")+"' data-hid='"+h.id+"'><div class='li-ic'>"+(mine?"🟡":"🔴")+"</div><div class='li-inf'><div class='li-nm' style='color:"+(mine?"var(--hl)":"var(--rvl)")+"' ondblclick='renameHive(event,&quot;"+h.id+"&quot;)'>"+h.name+(h.kovan?" ("+h.kovan+"k)":"")+"</div><div class='li-sb'>"+h.lat.toFixed(4)+", "+h.lng.toFixed(4)+"</div></div>"+sc+"<button class='xb' data-hdel='"+h.id+"'>✕</button></div>";
 }).join("");
 }
 g("hlist").addEventListener("click",function(e){var d=e.target.closest("[data-hdel]");if(d){e.stopPropagation();delHive(d.dataset.hdel);return;}var it=e.target.closest("[data-hid]");if(it)selHive(it.dataset.hid);});
