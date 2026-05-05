@@ -2,92 +2,144 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Espoo Beekeeping AI</title>
+    <title>Arıcılık AI Analiz</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css"/>
     <style>
         :root{ --h:#D4860A; --dk:#121008; --tx:#EDE9E3; --br:#2E2B26; }
         body{ margin:0; font-family:sans-serif; background:var(--dk); color:var(--tx); display:flex; flex-direction:column; height:100vh; overflow:hidden; }
-        header{ background:#1A1714; padding:10px; border-bottom:1px solid var(--br); display:flex; justify-content:space-between; }
-        #main{ display:flex; flex:1; }
+        header{ background:#1A1714; padding:10px 15px; border-bottom:1px solid var(--br); display:flex; justify-content:space-between; align-items:center; }
+        #main{ display:flex; flex:1; overflow:hidden; }
         #sidebar{ width:280px; border-right:1px solid var(--br); padding:10px; overflow-y:auto; }
         #map{ flex:1; background:#000; }
         #analysis{ width:320px; border-left:1px solid var(--br); padding:15px; overflow-y:auto; }
-        .inp{ width:100%; padding:8px; margin-bottom:5px; background:#222; border:1px solid var(--br); color:#fff; outline:none; }
-        .btn{ width:100%; padding:10px; background:var(--h); border:none; color:#000; font-weight:bold; cursor:pointer; }
-        .ana-card{ background:#1A1714; border-left:4px solid var(--h); padding:15px; margin-top:10px; line-height:1.6; }
+        .inp{ width:100%; padding:8px; margin-bottom:5px; background:#222; border:1px solid var(--br); color:#fff; outline:none; border-radius:3px; box-sizing:border-box; }
+        .btn{ width:100%; padding:10px; background:var(--h); border:none; color:#000; font-weight:bold; cursor:pointer; border-radius:3px; margin-bottom:5px; }
+        .btn:hover{ background:#F5A623; }
+        .ana-card{ background:#1A1714; border-left:4px solid var(--h); padding:15px; margin-top:10px; line-height:1.7; font-size:14px; }
         .spin{ width:30px; height:30px; border:3px solid #333; border-top-color:var(--h); border-radius:50%; animation:s .6s linear infinite; margin:20px auto; }
         @keyframes s{to{transform:rotate(360deg);}}
+        .hive-item{ padding:8px; border-bottom:1px solid var(--br); cursor:pointer; }
+        .hive-item:hover{ background:#1A1714; }
     </style>
 </head>
 <body>
 
 <header>
-    <div style="color:var(--h); font-weight:bold;">🍯 Espoo Beekeeping</div>
-    <div id="status" style="font-size:12px; color:#888;">Sistem Hazır</div>
+    <div style="color:var(--h); font-weight:bold; font-size:18px;">🍯 Arıcılık AI</div>
+    <div id="status" style="font-size:12px; color:#888;">Haritaya tıklayın</div>
 </header>
 
 <div id="main">
     <div id="sidebar">
         <input class="inp" id="name" placeholder="Arılık Adı">
-        <input class="inp" id="coords" placeholder="Haritaya Tıklayın" readonly>
+        <input class="inp" id="coords" placeholder="Haritaya tıklayın..." readonly>
         <button class="btn" id="addBtn">🐝 Ekle ve Analiz Et</button>
-        <div id="list" style="margin-top:20px;"></div>
+        <button class="btn" id="keyBtn" style="background:#333; color:#aaa; font-weight:normal;">🔑 API Key Değiştir</button>
+        <div id="list" style="margin-top:10px;"></div>
     </div>
     <div id="map"></div>
     <div id="analysis">
-        <div style="color:#888; text-align:center; margin-top:50px;">Analiz için haritadan bir konum seçin.</div>
+        <div style="color:#888; text-align:center; margin-top:50px; line-height:1.8;">
+            🗺 Haritaya tıkla<br>konum seç<br><br>
+            🐝 Ekle ve Analiz Et<br>butonuna bas
+        </div>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
 <script>
-    // TIER 1 ONAYLI ANAHTARINIZ
-    const API_KEY = "AIzaSyBSg1ljJlyGOVp2Lg50dBv3GC46s0LVGpg";
-    // STABİL v1 SÜRÜMÜ
-    const API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
+    const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent";
+    
+    function getKey(){ return localStorage.getItem('gemini_key'); }
+    function setKey(k){ localStorage.setItem('gemini_key',k); }
+
+    // Ask for key if not set
+    if(!getKey()){
+        var k = prompt('Google Gemini API Key gir (AIzaSy...):');
+        if(k) setKey(k);
+    }
+
+    document.getElementById('keyBtn').onclick = function(){
+        var k = prompt('Yeni API Key:', getKey()||'');
+        if(k) { setKey(k); alert('Key kaydedildi!'); }
+    };
 
     const map = L.map('map').setView([60.20, 24.65], 11);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution:'© OSM'}).addTo(map);
 
-    let marker;
-    map.on('click', e => {
+    var marker;
+    map.on('click', function(e){
         if(marker) map.removeLayer(marker);
         marker = L.marker(e.latlng).addTo(map);
-        document.getElementById('coords').value = e.latlng.lat.toFixed(6) + "," + e.latlng.lng.toFixed(6);
+        document.getElementById('coords').value = e.latlng.lat.toFixed(6) + ", " + e.latlng.lng.toFixed(6);
+        document.getElementById('status').textContent = '📍 Konum seçildi';
     });
 
-    document.getElementById('addBtn').onclick = async () => {
-        const c = document.getElementById('coords').value;
-        const n = document.getElementById('name').value || "Yeni Arılık";
-        if(!c) return alert("Lütfen haritadan konum seçin.");
+    var hives = JSON.parse(localStorage.getItem('hives')||'[]');
+    renderList();
 
-        const ana = document.getElementById('analysis');
-        ana.innerHTML = '<div class="spin"></div><p style="text-align:center">AI Espoo Florasını İnceliyor...</p>';
+    document.getElementById('addBtn').onclick = async function(){
+        var coords = document.getElementById('coords').value;
+        var name = document.getElementById('name').value || ('Arılık ' + (hives.length+1));
+        var apiKey = getKey();
 
-        try {
-            const res = await fetch(`${API_URL}?key=${API_KEY}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
+        if(!coords){ alert('Önce haritadan konum seçin!'); return; }
+        if(!apiKey){ alert('API Key gerekli!'); return; }
+
+        var ana = document.getElementById('analysis');
+        ana.innerHTML = '<div class="spin"></div><p style="text-align:center;color:#888;">AI analiz yapıyor...<br>30-60 saniye sürebilir</p>';
+        document.getElementById('status').textContent = '⏳ Analiz yapılıyor...';
+
+        var prompt = 'Sen bir Finlandiya arıcılık uzmanısın. ' +
+            'Koordinat: ' + coords + ' (Finlandiya). ' +
+            'Bu koordinat için Türkçe arıcılık analizi yap:\n\n' +
+            '1. 📍 Tam konum (il/ilçe/köy)\n' +
+            '2. 🌿 Bölgedeki başlıca nektar bitkileri (Fince isimleriyle)\n' +
+            '3. 📅 Nektar takvimi (hangi ay hangi bitki)\n' +
+            '4. 📊 Arıcılık skoru (1-100) ve açıklama\n' +
+            '5. 🧭 Önerilen kovan yönü\n' +
+            '6. ⚠️ Dikkat edilmesi gerekenler\n\n' +
+            'Gerçek verilerle yanıtla, tahmin yapma.';
+
+        try{
+            var res = await fetch(API_URL + '?key=' + apiKey, {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: `Koordinat: ${c}. Espoo Finlandiya için kısa arıcılık flora raporu hazırla (Türkçe).` }] }]
+                    contents: [{parts:[{text: prompt}]}],
+                    generationConfig: {maxOutputTokens: 1000, temperature: 0.3}
                 })
             });
-            const data = await res.json();
-            
+
+            var data = await res.json();
+
             if(data.error) throw new Error(data.error.message);
-            
-            const text = data.candidates[0].content.parts[0].text;
-            ana.innerHTML = `<div class="ana-card"><strong>📍 ${n}</strong><br><br>${text}</div>`;
-            
-            const li = document.createElement('div');
-            li.style.padding = "10px";
-            li.style.borderBottom = "1px solid #2e2b26";
-            li.innerHTML = `🟡 ${n}`;
-            document.getElementById('list').prepend(li);
-        } catch (e) {
-            ana.innerHTML = `<div style="color:#ff6b6b; padding:10px; font-size:13px;">⚠️ Hata: ${e.message}<br><br><b>Çözüm:</b> Tarayıcıda izleme engelleyiciyi kapatın veya dosyayı Gizli Sekmede açın.</div>`;
+
+            var text = data.candidates[0].content.parts[0].text;
+            text = text.replace(/\n/g, '<br>');
+
+            ana.innerHTML = '<div class="ana-card"><strong style="color:var(--h);font-size:15px;">📍 ' + name + '</strong><br><small style="color:#888;">' + coords + '</small><br><br>' + text + '</div>';
+
+            // Save hive
+            hives.push({name:name, coords:coords, ts:Date.now()});
+            localStorage.setItem('hives', JSON.stringify(hives));
+            document.getElementById('name').value = '';
+            renderList();
+            document.getElementById('status').textContent = '✅ Analiz tamamlandı';
+
+        }catch(e){
+            ana.innerHTML = '<div style="color:#ff6b6b;padding:15px;line-height:1.8;">⚠️ Hata: ' + e.message + '</div>';
+            document.getElementById('status').textContent = '❌ Hata oluştu';
         }
     };
+
+    function renderList(){
+        var el = document.getElementById('list');
+        if(!hives.length){ el.innerHTML = '<div style="color:#666;font-size:12px;padding:10px;">Henüz arılık yok.</div>'; return; }
+        el.innerHTML = hives.slice().reverse().map(function(h,i){
+            return '<div class="hive-item">🟡 ' + h.name + '<br><small style="color:#666;">' + h.coords + '</small></div>';
+        }).join('');
+    }
 </script>
 </body>
 </html>
