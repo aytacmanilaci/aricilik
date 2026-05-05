@@ -48,19 +48,19 @@
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js"></script>
 <script>
-    const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent";
+    const API_URL = "https://api.anthropic.com/v1/messages";
     
-    function getKey(){ return localStorage.getItem('gemini_key'); }
-    function setKey(k){ localStorage.setItem('gemini_key',k); }
+    function getKey(){ return localStorage.getItem('anthropic_key'); }
+    function setKey(k){ localStorage.setItem('anthropic_key',k); }
 
     // Ask for key if not set
     if(!getKey()){
-        var k = prompt('Google Gemini API Key gir (AIzaSy...):');
+        var k = prompt('Google Gemini API Key gir (sk-ant-...):');
         if(k) setKey(k);
     }
 
     document.getElementById('keyBtn').onclick = function(){
-        var k = prompt('Yeni API Key:', getKey()||'');
+        var k = prompt('Yeni Anthropic API Key:', getKey()||'');
         if(k) { setKey(k); alert('Key kaydedildi!'); }
     };
 
@@ -102,12 +102,18 @@
             'Gerçek verilerle yanıtla, tahmin yapma.';
 
         try{
-            var res = await fetch(API_URL + '?key=' + apiKey, {
+            var res = await fetch(API_URL, {
                 method: 'POST',
-                headers: {'Content-Type':'application/json'},
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': apiKey,
+                    'anthropic-version': '2023-06-01',
+                    'anthropic-dangerous-direct-browser-access': 'true'
+                },
                 body: JSON.stringify({
-                    contents: [{parts:[{text: prompt}]}],
-                    generationConfig: {maxOutputTokens: 1000, temperature: 0.3}
+                    model: 'claude-sonnet-4-20250514',
+                    max_tokens: 1000,
+                    messages: [{role: 'user', content: prompt}]
                 })
             });
 
@@ -115,7 +121,7 @@
 
             if(data.error) throw new Error(data.error.message);
 
-            var text = data.candidates[0].content.parts[0].text;
+            var text = (data.content||[]).map(function(i){return i.text||'';}).join('');
             text = text.replace(/\n/g, '<br>');
 
             ana.innerHTML = '<div class="ana-card"><strong style="color:var(--h);font-size:15px;">📍 ' + name + '</strong><br><small style="color:#888;">' + coords + '</small><br><br>' + text + '</div>';
